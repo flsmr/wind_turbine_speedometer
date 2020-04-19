@@ -63,6 +63,13 @@ public:
 
     // returns a list of points above rgb threshold in defined region of interest
     void getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, PointList* points);
+
+    // returns list of points lying on a line between start and endpoint according to Bresenham's line algorithm
+    // Pseudocode: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+    void getLinePoints(const Point startPoint, const Point endPoint, PointList &pointList);
+
+    // draws a line on the image between start and end point in provided color
+    void writeLineToImg (const Point startPoint, const Point endPoint, std::vector<uint8_t> color);
 };
 
 #endif /* IMGCONVERTER_H_ */
