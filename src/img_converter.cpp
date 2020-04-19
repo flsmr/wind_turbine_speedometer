@@ -1,0 +1,111 @@
+#ifndef IMGCONVERTER_CPP_
+#define IMGCONVERTER_CPP_
+
+#include "img_converter.h"
+
+/* Use image reading library from
+ * https://github.com/nothings/stb
+*/
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+
+// Destructor
+ImgConverter::~ImgConverter() { stbi_image_free(_img); }
+
+// load image from given filename
+void ImgConverter::load(const char* filename) {
+    _filename = filename;
+    int width;
+    int height;
+    _img = stbi_load(filename, &width, &height, &_nbChannels, 0);
+    if (_img == NULL) {
+        std::cout << "Could not load image file " << filename << std::endl;
+        return;
+    }
+    _width = static_cast<size_t>(width);
+    _height = static_cast<size_t>(height);
+}
+
+// save loaded image to filename. If no filename is given, the current file is overwritten
+void ImgConverter::save() { save(_filename);};
+void ImgConverter::save(const char* filename) {
+    if (_img != NULL) {
+        int width = static_cast<int>(_width);
+        int height = static_cast<int>(_height);
+        if (stbi_write_png(_filename, width, height, _nbChannels, _img, _width*_nbChannels) == 0) {
+            std::cout << "Could not save image to file " << _filename << std::endl;
+            return;
+        }
+    } else {
+        std::cout << "No image to save."<< std::endl;
+    }
+}
+
+// returns true if pixel coordinates are in bound of loaded image
+bool ImgConverter::inBound (const Point point) {
+    return (point[0] < _height && point[1] < _width);
+}
+
+// sets pixels with coordinates given in points to specified rgb color in loaded image 
+void ImgConverter::writePointsToImg (PointList points, std::vector<uint8_t> color) {
+    if (_img != NULL) {
+        for (Point point: points) {
+            if (inBound(point)) {
+                setRGBValue(point, color);
+            }
+        }
+    } else {
+        std::cout << "Could not write points to image: No image loaded."<< std::endl;
+    }
+}
+
+// returns the rgb value of a pixel in loaded image or {0,0,0} if out of bound
+void ImgConverter::getRGBValue(const Point point, std::vector<uint8_t> &rgbVal) {
+    if (_img != NULL && inBound(point)) {
+        size_t pos = (point[0] * _width + point[1]) * _nbChannels;
+        for (size_t i = 0; i < _nbChannels; ++i) {
+            rgbVal[i] = _img[pos+i];
+        }
+    } else {
+        std::cout << "Could not get rgb value of point in image: ("<< point[0] <<", "<< point[1] <<") is out of bound or no image loaded."<< std::endl;
+        rgbVal = {0,0,0};
+    }        
+}
+
+// sets the rgb value of a pixel in loaded image to specified color
+void ImgConverter::setRGBValue(const Point point, const std::vector<uint8_t> &rgbVal) {
+    if (_img != NULL && inBound(point)) {
+        size_t pos = (point[0] * _width + point[1]) * _nbChannels;
+        for (size_t i = 0; i < _nbChannels; ++i) {
+            _img[pos+i] = rgbVal[i];
+        }
+    } else {
+        std::cout << "Could not set rgb value of point in image: ("<< point[0] <<", "<< point[1] <<") is out of bound or no image loaded."<< std::endl;
+    }        
+}
+
+// returns a list of points above rgb threshold in defined region of interest
+void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, PointList* points) {
+    // limit region of interest to image boundaries
+    int minCol = (roi.minCol < 0) ? 0 : roi.minCol;
+    int maxCol = (roi.maxCol > _width) ? 0 : roi.maxCol;
+    int minRow = (roi.minRow < 0) ? 0 : roi.minRow;
+    int maxRow = (roi.maxRow > _height) ? 0 : roi.maxRow;
+    std::vector<uint8_t> rgbVal = {0,0,0};
+
+    // iterate of region of interest and check whether rgb values are above threshold
+    for (size_t row = minRow; row < maxRow; ++row) {
+        for (size_t col = minCol; col < maxCol; ++col) {
+            getRGBValue({row, col}, rgbVal);
+            bool aboveThreshold = true;
+            for (size_t channel = 0; channel < _nbChannels; ++channel) {
+                aboveThreshold = (aboveThreshold && rgbVal[channel] > threshold[channel]) ? true : false;
+            }
+            if(aboveThreshold) points->push_back({row,col});
+        }
+    }
+}
+
+#endif /* IMGCONVERTER_CPP_ */

@@ -33,3 +33,6 @@
 
 # Folders
 build/*
+.vscode/*
+src/.vscode/*
+#img/*

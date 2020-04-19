@@ -7,4 +7,9 @@ set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 
 project(wind_turbine_speedometer)
 
-add_executable(wind_turbine_speedometer src/main.cpp src/stb_image_write.h src/stb_image.h)
+add_executable(wind_turbine_speedometer 
+    src/main.cpp
+    src/img_converter.cpp
+    src/img_converter.h
+    src/stb_image_write.h
+    src/stb_image.h)
