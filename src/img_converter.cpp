@@ -11,6 +11,8 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
+// Constructor
+ImgConverter::ImgConverter() {}; 
 // Destructor
 ImgConverter::~ImgConverter() { stbi_image_free(_img); }
 
@@ -34,7 +36,7 @@ void ImgConverter::save(const char* filename) {
     if (_img != NULL) {
         int width = static_cast<int>(_width);
         int height = static_cast<int>(_height);
-        if (stbi_write_png(_filename, width, height, _nbChannels, _img, _width*_nbChannels) == 0) {
+        if (stbi_write_png(filename, width, height, _nbChannels, _img, _width*_nbChannels) == 0) {
             std::cout << "Could not save image to file " << _filename << std::endl;
             return;
         }
@@ -49,9 +51,9 @@ bool ImgConverter::inBound (const Point point) {
 }
 
 // sets pixels with coordinates given in points to specified rgb color in loaded image 
-void ImgConverter::writePointsToImg (PointList points, std::vector<uint8_t> color) {
+void ImgConverter::writePointsToImg (PointList* points, std::vector<uint8_t> color) {
     if (_img != NULL) {
-        for (Point point: points) {
+        for (Point point: (*points)) {
             if (inBound(point)) {
                 setRGBValue(point, color);
             }
@@ -90,18 +92,19 @@ void ImgConverter::setRGBValue(const Point point, const std::vector<uint8_t> &rg
 void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, PointList* points) {
     // limit region of interest to image boundaries
     int minCol = (roi.minCol < 0) ? 0 : roi.minCol;
-    int maxCol = (roi.maxCol > _width) ? 0 : roi.maxCol;
+    int maxCol = (roi.maxCol > _width) ? _width : roi.maxCol;
     int minRow = (roi.minRow < 0) ? 0 : roi.minRow;
-    int maxRow = (roi.maxRow > _height) ? 0 : roi.maxRow;
+    int maxRow = (roi.maxRow > _height) ? _height : roi.maxRow;
     std::vector<uint8_t> rgbVal = {0,0,0};
 
     // iterate of region of interest and check whether rgb values are above threshold
     for (size_t row = minRow; row < maxRow; ++row) {
         for (size_t col = minCol; col < maxCol; ++col) {
             getRGBValue({row, col}, rgbVal);
-            bool aboveThreshold = true;
+            bool aboveThreshold = false;
             for (size_t channel = 0; channel < _nbChannels; ++channel) {
-                aboveThreshold = (aboveThreshold && rgbVal[channel] > threshold[channel]) ? true : false;
+                aboveThreshold = (aboveThreshold || rgbVal[channel] > threshold[channel]) ? true : false;
+//std::cout << "rgbVal[channel]: " << rgbVal[channel] << "  threshold[channel] " <<threshold[channel] <<" above? " << (rgbVal[channel] > threshold[channel])<< std::endl;
             }
             if(aboveThreshold) points->push_back({row,col});
         }
@@ -141,7 +144,8 @@ void ImgConverter::getLinePoints(const Point startPoint, const Point endPoint, P
 void ImgConverter::writeLineToImg (const Point startPoint, const Point endPoint, std::vector<uint8_t> color) {
     PointList linePoints;
     getLinePoints(startPoint,endPoint, linePoints);
-    writePointsToImg (linePoints, color);
+    PointList* pointsOut = &linePoints;
+    writePointsToImg (pointsOut, color);
 }
 
 #endif /* IMGCONVERTER_CPP_ */

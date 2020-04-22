@@ -69,7 +69,7 @@ void Cluster::maximize(std::vector<std::vector<double>> points, std::vector<doub
         std::inner_product(points.begin(), points.end(), prob.begin(), 0.0, std::plus<>(),
         [](auto pnt, auto p) {return pnt[1]*p;});   
     center = {c1, c2};
-
+ 
     // calculate new covariance matrix
     sigma[0][0] = 1.0 / (sumProb + 1.0e-6) * 
         std::inner_product(points.begin(), points.end(), prob.begin(), 0.0, std::plus<>(),
@@ -113,8 +113,10 @@ void ClusterModel::runClusterFitting()
     double tol = 1e-6;
     double likelihood(0);
     double lastLikelihood(0);
-    size_t maxIt = 500;
+    size_t maxIt = 10;
     size_t maxCluster = 0;
+    double curMax = 0.0;
+    double maxProb;
     std::vector<double> loglikelihood(maxIt, -1e20);
 
     // initialize point probabilities for clusters
@@ -122,8 +124,6 @@ void ClusterModel::runClusterFitting()
     for (auto cluster: clusters) {
         probs.insert(std::make_pair(cluster, std::vector<double>(points.size(),0.0)));
     }
-    std::vector<double> maxProbs = std::vector<double>(points.size(),0.0);
-
     // Expectation Maximization Algorithm
     for (size_t i = 1; i < maxIt; i++)
     {
@@ -136,11 +136,8 @@ void ClusterModel::runClusterFitting()
         double traceSumLog(0.0);
         double normConst(0.0);
         
-        for (auto cluster: clusters) {
+        for (auto& cluster: clusters) {
             cluster->expectation(points, probs[cluster]);
-            std::transform(probs[cluster].begin(), probs[cluster].end(), maxProbs.begin(),
-                        std::back_inserter(maxProbs),
-                        [](auto a, auto b){return std::max(a,b);});
         }
 
         // likelihood of all points to appear for the current set of clusters
@@ -150,23 +147,34 @@ void ClusterModel::runClusterFitting()
         clu2pnt.clear();
         for (size_t iPnt = 0; iPnt < points.size(); ++iPnt)
         {
+            // determine maximum probability for this point of all clusters
+            maxProb = -1e8;
+            for (auto& cluster: clusters) {
+                maxProb = (probs[cluster][iPnt]>maxProb)?probs[cluster][iPnt] : maxProb;
+            }
+//        std::cout << "maxProb: "<<maxProb <<std::endl;
+
             expsum = 0.0;
             // switch to log form
             for (auto cluster: clusters) {
-                expsum += exp(probs[cluster][iPnt] - maxProbs[iPnt]);
+                expsum += exp(probs[cluster][iPnt] - maxProb);
             }
-            logsum = maxProbs[iPnt] + log(expsum);
+
+            logsum = maxProb + log(expsum);
+//        std::cout << "logsum: "<<logsum <<std::endl;
             likelihood +=logsum;
+//        std::cout << "likelihood: "<<likelihood <<std::endl;
 
             // reverse to exponential form
             maxCluster = 0;
             //for (auto it = m_probability.begin(); it !=m_probability.end(); ++it)
             for (auto cluster:clusters) {
                 probs[cluster][iPnt] = exp(probs[cluster][iPnt] - logsum);
+//                std::cout << "new probs: "<<probs[cluster][iPnt] <<std::endl;
             }
 
             // find out for which cluster the point is most likely
-            double curMax = 0.0;
+            curMax = 0.0;
             for (auto& cluster:clusters) {
                 if (curMax < probs[cluster][iPnt]) {
                     curMax = probs[cluster][iPnt];
@@ -205,7 +213,7 @@ void ClusterModel::getClusterPoints(size_t clusterID, std::vector<std::vector<do
 	auto it_range = clu2pnt.equal_range(clusters[clusterID]); //std::pair<MMAPIterator, MMAPIterator>
 	for (auto it = it_range.first; it != it_range.second; it++) {
 		pointlist.push_back(points[it->second]);
-        std::cout << it->second << ": " << pointlist.back()[0]<< " | " <<pointlist.back()[1]<< std::endl;
+//        std::cout << it->second << ": " << pointlist.back()[0]<< " | " <<pointlist.back()[1]<< std::endl;
     }
 	int num = std::distance(it_range.first, it_range.second);
 	std::cout << "cluster has " << num << " number of points."<< std::endl;

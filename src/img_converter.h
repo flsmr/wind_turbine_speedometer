@@ -8,6 +8,7 @@
 
 class ImgConverter
 {
+    public:
     using Point = std::vector<size_t>; // {row Idx, col Idx}
     using PointList = std::vector<Point>;
 
@@ -53,7 +54,7 @@ public:
     bool inBound (const Point point);
 
     // sets pixels with coordinates given in points to specified rgb color in loaded image 
-    void writePointsToImg (PointList points, std::vector<uint8_t> color);
+    void writePointsToImg (PointList* points, std::vector<uint8_t> color);
 
     // returns the rgb value of a pixel in loaded image or {0,0,0} if out of bound
     void getRGBValue(const Point point, std::vector<uint8_t> &rgbVal);
@@ -67,7 +68,7 @@ public:
     // returns list of points lying on a line between start and endpoint according to Bresenham's line algorithm
     // Pseudocode: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
     void getLinePoints(const Point startPoint, const Point endPoint, PointList &pointList);
-
+         
     // draws a line on the image between start and end point in provided color
     void writeLineToImg (const Point startPoint, const Point endPoint, std::vector<uint8_t> color);
 };

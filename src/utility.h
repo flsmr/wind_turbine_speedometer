@@ -2,7 +2,7 @@
 #define UTILITY_H_
 #include <vector>
 #include <math.h>
-#include <bits/stdc++.h> 
+//#include <bits/stdc++.h> 
 
 namespace Utility {
     // Cholesky decomposition of a positive definite matrix. Pseudo code can be found here:
