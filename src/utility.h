@@ -62,6 +62,20 @@ namespace Utility {
         }
         return true;
     }
+
+    // prints out a nested 2 dimensional vector with a header uphead
+    void printMatrix(const std::vector<std::vector<double>>& mat, std::string header)
+    {
+        std::cout << header << std::endl;
+        for (std::vector<double> row : mat)
+        {
+            for (double el : row)
+            {
+                std::cout << el << " ";
+            }
+            std::cout << std::endl;
+        }
+    }    
 }
 
 #endif /* UTILITY_H_ */

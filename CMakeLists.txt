@@ -11,5 +11,8 @@ add_executable(wind_turbine_speedometer
     src/main.cpp
     src/img_converter.cpp
     src/img_converter.h
+    src/clustering.h
+    src/clustering.cpp
+    src/utility.h
     src/stb_image_write.h
     src/stb_image.h)
