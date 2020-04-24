@@ -1,8 +1,11 @@
 #include <stdint.h>
 #include <vector>
+#include <iostream>
+#include <memory>
 
 #include "clustering.h"
 #include "img_converter.h"
+
 
 int main() {
     std::vector<int> ROIrow = {0,8000};
@@ -17,12 +20,12 @@ int main() {
     int bpp;
 
     ImgConverter::ROI roi;
-    roi.maxCol = 1200;
-    roi.maxRow = 8000;
+    roi.maxCol = 500;
+    roi.maxRow = 500;
     roi.minCol = 0;
     roi.minRow = 0;
     ImgConverter imgConv;
-    const char* filename = "../img/vid01111.png";
+    const char* filename = "../img/vid00001.png";
     const char* filename2 = "../img/out.png";
     imgConv.load(filename);
     //std::vector<std::vector<double>>* points = new std::vector<std::vector<double>>;
@@ -31,6 +34,17 @@ int main() {
     
     imgConv.getPointsInROIAboveThreshold (roi, {200,200,255}, points);
     std::cout << "num points above threshold: " << points->size() << std::endl;
+    // remove tower
+    //(*points).erase
+    for (auto it = points->begin(); it !=points->end(); ++it) {
+        if ((*it)[1] > 150 && (*it)[1] < 200 && (*it)[0] > 200) {
+            // (*it)[0]: rows
+            // (*it)[1]: cols 
+            points->erase(it);
+            --it;
+        }
+    }
+    
 //    imgConv.writePointsToImg (points, {255,0,0});
 //    imgConv.save(filename2);
 
@@ -38,7 +52,7 @@ int main() {
     // convert to double
     double meanx = 0.0;
     double meany = 0.0;
-    double scale = 300.0;
+    double scale = 50;//300.0;
     double minx = scale;
     double miny = scale;
     double maxx = 0.0;
@@ -56,8 +70,8 @@ int main() {
     meanx /= pointsDbl.size();
     meany /= pointsDbl.size();
     Cluster cluster1({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0);
-    Cluster cluster2({meanx+maxx/2.0,meany}, {{1,0},{0,1}}, 1.0/3.0);
-    Cluster cluster3({meanx-maxx/2.0,meany}, {{1,0},{0,1}}, 1.0/3.0);
+    Cluster cluster2({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0);
+    Cluster cluster3({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0);
     std::vector<Cluster> clusterList =  {cluster1,cluster2,cluster3};
 
 
@@ -93,6 +107,27 @@ int main() {
     imgConv.writePointsToImg (points2, {0,255,0});
     imgConv.writePointsToImg (points3, {0,0,255});
     imgConv.save(filename2);
+    
+    std::shared_ptr<Cluster>  c1(new Cluster({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0));
+    std::shared_ptr<Cluster>  c2(new Cluster({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+    std::shared_ptr<Cluster>  c3(new Cluster({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
 
+    std::shared_ptr<Cluster>  c4(new Cluster({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0));
+    std::shared_ptr<Cluster>  c5(new Cluster({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+    std::shared_ptr<Cluster>  c6(new Cluster({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+    //std::shared_ptr<Cluster> c1 = std
+    std::cout << "test1 " << std::endl;
+    std::vector<std::shared_ptr<Cluster>> clist1 = {c1,c2,c3};
+    std::vector<std::shared_ptr<Cluster>> clist2 = {c6,c5,c4};
+    std::cout << "test2 " << std::endl;
+    std::map<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> cmap;
+    std::cout << "test3 " << std::endl;
+    Cluster::matchClusters(clist1,clist2,cmap);
+    std::cout << "test4 " << cmap.size() << std::endl;
+    std::cout << "center should: " << meany << " is " <<  cmap.find(c1)->second->center[1] <<std::endl;
+
+//    const std::vector<std::shared_ptr<Cluster>>&clist2,
+//    std::map<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &cmap){
     return 0;
 }
+

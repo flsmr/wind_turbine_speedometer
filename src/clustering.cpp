@@ -86,6 +86,42 @@ void Cluster::maximize(std::vector<std::vector<double>> points, std::vector<doub
             return pnt2*pnt2; });
 }
 
+double Cluster::getClusterDistance(std::shared_ptr<Cluster> &cluster) {
+    double x0 = center[0];
+    double y0 = center[1];
+    double x1 = cluster->center[0];
+    double y1 = cluster->center[1];
+    return std::sqrt(std::pow(x0-x1,2)+std::pow(y0-y1,2));
+}
+
+void Cluster::matchClusters(const std::vector<std::shared_ptr<Cluster>>&clist1,
+    const std::vector<std::shared_ptr<Cluster>>&clist2,
+    std::map<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &cmap){
+        std::vector<std::pair<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>>> tuples;
+        // generate all possible tuples of clusters
+        for(auto &cluster1:clist1) {
+            for(auto &cluster2:clist2) {
+                tuples.push_back(std::make_pair(cluster1, cluster2));
+            }
+        }
+
+        //sort by min distance
+        std::sort(tuples.begin(),tuples.end(), [](
+            std::pair<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &a,
+            std::pair<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &b)->bool
+            {return a.first->getClusterDistance(a.second) > b.first->getClusterDistance(b.second);});
+
+        // add closest clusters to map
+        while(tuples.size() > 0) {
+            auto cpair = tuples.back();
+            // check if cluster is already in map
+            if (cmap.find(cpair.first) == cmap.end()) {
+                cmap.insert(cpair);
+            }
+            tuples.pop_back();
+        }
+}
+
 // -------------------------------------------------------
 
 ClusterModel::ClusterModel(std::vector<std::vector<double>> pointsIn, std::vector<Cluster> clustersIn)
@@ -218,5 +254,6 @@ void ClusterModel::getClusterPoints(size_t clusterID, std::vector<std::vector<do
 	int num = std::distance(it_range.first, it_range.second);
 	std::cout << "cluster has " << num << " number of points."<< std::endl;
 }
+
 
 #endif /* CLUSTERING_CPP_ */

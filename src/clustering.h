@@ -37,6 +37,20 @@ public:
     void maximize(std::vector<std::vector<double>> points, std::vector<double> probabilities);
     // determine probabilities for cluster to generate given set of points
     void expectation(std::vector<std::vector<double>> points, std::vector<double>&prob);
+    // returns the euclidean distance between the mean of this and the provided cluster
+    double getClusterDistance(std::shared_ptr<Cluster> &cluster);
+    // returns a map between the closest clusters in clist1 and clist2 by distance of their centers
+    static void matchClusters(const std::vector<std::shared_ptr<Cluster>>&clist1,
+        const std::vector<std::shared_ptr<Cluster>>&clist2,
+        std::map<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &cmap);
+// Function map clusters
+// input: two lists of clusters
+// iterate through first list: calc distances to each other cluster
+// make pairs
+// push (pop) highest match to mapping
+//or: create ntuples => sort (using getDistance as measure) => pop first map into list (block other matches with this cluster on list 1 and 2)
+// output: map <cl1> <cl2> (three mappings)
+
 };
 
 
@@ -68,8 +82,8 @@ public:
     void runClusterFitting();
     // prints a matrix (for debugging purposes)
     static void printMat(const std::vector<std::vector<double>>& mat, std::string title);
+    // returns the points associeated to this cluster
     void getClusterPoints(size_t clusterID, std::vector<std::vector<double>> &pointlist);
-
 private:
     // removes any clusters with no points associated
     void deleteEmptyClusters();
