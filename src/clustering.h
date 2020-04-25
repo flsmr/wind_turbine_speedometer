@@ -43,14 +43,6 @@ public:
     static void matchClusters(const std::vector<std::shared_ptr<Cluster>>&clist1,
         const std::vector<std::shared_ptr<Cluster>>&clist2,
         std::map<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &cmap);
-// Function map clusters
-// input: two lists of clusters
-// iterate through first list: calc distances to each other cluster
-// make pairs
-// push (pop) highest match to mapping
-//or: create ntuples => sort (using getDistance as measure) => pop first map into list (block other matches with this cluster on list 1 and 2)
-// output: map <cl1> <cl2> (three mappings)
-
 };
 
 
@@ -83,11 +75,6 @@ public:
     void runClusterFitting();
     // prints a matrix (for debugging purposes)
     static void printMat(const std::vector<std::vector<double>>& mat, std::string title);
-    // returns the points associeated to this cluster
-    void getClusterPoints(const std::shared_ptr<Cluster> &cluster, std::shared_ptr<std::vector<std::vector<double>>> &pointlist);
-private:
-    // removes any clusters with no points associated
-    void deleteEmptyClusters();
 };
 
 #endif // CLUSTERING_H_

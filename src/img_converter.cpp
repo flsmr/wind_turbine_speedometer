@@ -28,7 +28,6 @@ void ImgConverter::load(std::string filename) {
     }
     _width = static_cast<size_t>(width);
     _height = static_cast<size_t>(height);
-    std::cout << "Image size (width | heigth): "<< width << " | " << height << std::endl;
 }
 
 // save loaded image to filename. If no filename is given, the current file is overwritten
@@ -105,7 +104,6 @@ void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vecto
             bool aboveThreshold = false;
             for (size_t channel = 0; channel < _nbChannels; ++channel) {
                 aboveThreshold = (aboveThreshold || rgbVal[channel] > threshold[channel]) ? true : false;
-//std::cout << "rgbVal[channel]: " << rgbVal[channel] << "  threshold[channel] " <<threshold[channel] <<" above? " << (rgbVal[channel] > threshold[channel])<< std::endl;
             }
             if(aboveThreshold) points->push_back({row,col});
         }
@@ -145,7 +143,6 @@ void ImgConverter::getLinePoints(const Point startPoint, const Point endPoint, P
 void ImgConverter::writeLineToImg (const Point startPoint, const Point endPoint, std::vector<uint8_t> color) {
     std::shared_ptr<PointList> linePoints;
     getLinePoints(startPoint,endPoint, (*linePoints));
-    //std::shared_ptr<PointList> pointsOut = linePoints;
     writePointsToImg (linePoints, color);
 }
 
