@@ -12,7 +12,7 @@ public:
     std::vector<std::vector<double>> sigma;
     // weighting wrt. other clusters
     double weighting;
-
+    std::shared_ptr<std::vector<std::vector<double>>> points;
     // Constructor
     Cluster();
     Cluster(std::vector<double> center, std::vector<std::vector<double>> sigma,double weighting); 
@@ -58,12 +58,13 @@ class ClusterModel
 {
 public:
     //std::vector<Cluster> clusters;
-    std::multimap <std::shared_ptr<Cluster>, size_t> clu2pnt;
+    std::multimap <std::shared_ptr<Cluster>, std::vector<double>> clu2pnt;
     std::vector<std::shared_ptr<Cluster>> clusters;
     std::vector<std::vector<double>> points;
 
     // Default constructor
     ClusterModel(std::vector<std::vector<double>> points, std::vector<Cluster> clusters);
+    ClusterModel(std::vector<std::vector<double>> points, std::vector<std::shared_ptr<Cluster>> &clusters) : points(points) , clusters(clusters) {};
     /*
     // Copy constructor
     ClusterModel(const ClusterModel&) = delete;
@@ -83,7 +84,7 @@ public:
     // prints a matrix (for debugging purposes)
     static void printMat(const std::vector<std::vector<double>>& mat, std::string title);
     // returns the points associeated to this cluster
-    void getClusterPoints(size_t clusterID, std::vector<std::vector<double>> &pointlist);
+    void getClusterPoints(const std::shared_ptr<Cluster> &cluster, std::shared_ptr<std::vector<std::vector<double>>> &pointlist);
 private:
     // removes any clusters with no points associated
     void deleteEmptyClusters();

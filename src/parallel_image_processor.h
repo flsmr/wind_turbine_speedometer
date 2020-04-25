@@ -15,33 +15,44 @@ template <class T>
 class ParallelImageProcessor
 {
 public:
+    std::map<size_t,std::vector<std::shared_ptr<Cluster>>> clusterList; // maps frame ID to list of clusters detected in this frame
+
     // Constructor
     ParallelImageProcessor(ImgConverter::ROI roi, std::vector<uint8_t> rgbThreshold, double scale, size_t maxThreads) : 
         _roi(roi) , _rgbThreshold(rgbThreshold) , _scale(scale), _maxThreads(maxThreads) {}
 
-    T receive()
+    T readyForNextImage()
     {
         // perform queue modification under the lock
         std::unique_lock<std::mutex> uLock(_mutex);
-        _cond.wait(uLock, [this] { return !_messages.empty(); }); // pass unique lock to condition variable
+//        _cond.wait(uLock, [this] { return !_messages.empty(); }); // pass unique lock to condition variable
+        _cond.wait(uLock, [this] { return _runningThreads < _maxThreads; }); // pass unique lock to condition variable
 
         // remove last vector element from queue
-        T msg = std::move(_messages.back());
-        _messages.pop_back();
+//        T msg = std::move(_messages.back());
+//        _messages.pop_back();
 
-        return msg; // will not be copied due to return value optimization (RVO) in C++
+        //return msg; // will not be copied due to return value optimization (RVO) in C++
+        return _runningThreads;
     }
     // loads image, extracts points and clusters rotorblades
 
-    void processImage(T &&msg, std::string filename)
+    T processImage(T &&msg, std::string filename)
     {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        std::unique_lock<std::mutex> lck(_mutex );
+        std::cout << "processing " << filename << std::endl;
+        ++_runningThreads;
+        // copy parameters to avoid unnecessary locking/unlocking
+        auto roi = _roi;
+        auto rgbThreshold = _rgbThreshold;
+        auto scale = _scale;
+        lck.unlock();
+//                std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 
-/*
+
         // READ IMAGE FILE
-        const char* fn = filename.c_str();
         ImgConverter imgConv;
-        imgConv.load(fn);
+        imgConv.load(filename);
         // std::vector<std::vector<size_t>>* points = new std::vector<std::vector<size_t>>();
 
         // extracting rotor blade points
@@ -81,45 +92,26 @@ public:
         // position 1st cluster in center of extracted points, 2nd and 3rd above / below respectively
         // initialize covariance matrix as identity matrix 
         // weight corresponds to 1 / (number of clusters)
-        Cluster cluster1({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0);
-        Cluster cluster2({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0);
-        Cluster cluster3({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0);
-        std::vector<Cluster> clusterList =  {cluster1,cluster2,cluster3};
-        ClusterModel cm(pointsDbl,clusterList);
+        std::shared_ptr<Cluster> cluster1(new Cluster({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0));
+        std::shared_ptr<Cluster> cluster2(new Cluster({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+        std::shared_ptr<Cluster> cluster3(new Cluster({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+//        auto cluster1p = std::make_shared<Cluster>({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0);
+//        auto cluster2p = std::make_shared<Cluster>({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0);
+//        auto cluster3p = std::make_shared<Cluster>({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0);
+        std::vector<std::shared_ptr<Cluster>> clusters = {cluster1,cluster2,cluster3};
+
         // fit clusters to extracted points
+        ClusterModel cm(pointsDbl,clusters);
         cm.runClusterFitting();
-
-
-        // convert back
-        // TODO: create single for loop
-        std::vector<std::vector<double>> mypoints1;
-        std::vector<std::vector<double>> mypoints2;
-        std::vector<std::vector<double>> mypoints3;
-        std::vector<std::vector<size_t>>* points1 = new std::vector<std::vector<size_t>>();
-        std::vector<std::vector<size_t>>* points2 = new std::vector<std::vector<size_t>>();
-        std::vector<std::vector<size_t>>* points3 = new std::vector<std::vector<size_t>>();
-        cm.getClusterPoints(0,mypoints1);
-        cm.getClusterPoints(1,mypoints2);
-        cm.getClusterPoints(2,mypoints3);
-        for(auto pnt : mypoints1) {
-            points1->push_back({static_cast<size_t>(pnt[0]*scale),static_cast<size_t>(pnt[1]*scale)});
-        }
-        for(auto pnt : mypoints2) {
-            points2->push_back({static_cast<size_t>(pnt[0]*scale),static_cast<size_t>(pnt[1]*scale)});
-        }
-        for(auto pnt : mypoints3) {
-            points3->push_back({static_cast<size_t>(pnt[0]*scale),static_cast<size_t>(pnt[1]*scale)});
-        }
-*/        
-        // perform vector modification under the lock
-        std::lock_guard<std::mutex> uLock(_mutex);
-        // add points to cluster points
-        // add clusters to cluster list
-
-        // add vector to queue
-        std::cout << "   Message " << msg << " has been sent to the queue" << std::endl;
-        _messages.push_back(std::move(msg));
+ 
+        // Add fitted clusters to list under the lock
+//        std::lock_guard<std::mutex> uLock(_mutex);
+        lck.lock();
+        std::cout << "Frame " << msg << ": Added clusters" <<std::endl;
+        clusterList.insert(std::make_pair(msg, cm.clusters)); //also try just clusters as content should have changed
+        --_runningThreads;
         _cond.notify_one(); // notify client after pushing new Vehicle into vector
+        return msg;
     }
 
 private:
@@ -128,11 +120,10 @@ private:
     std::deque<T> _messages;
 
     ImgConverter::ROI _roi;
-    std::vector<uint8_t> _rgbThreshold;
-    double _scale;
-    size_t _maxThreads;
-    std::map<std::shared_ptr<Cluster>,std::vector<std::vector<double>>> _clusterPoints; // should be changed to 
-    std::map<size_t,std::shared_ptr<Cluster>> _clusterList; // maps frame ID to list of clusters detected in this frame
+    std::vector<uint8_t> _rgbThreshold{200,200,200};
+    double _scale{1};
+    size_t _maxThreads{4};
+    size_t _runningThreads{0};
 
     // max threads
 

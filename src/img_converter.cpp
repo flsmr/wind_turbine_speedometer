@@ -17,11 +17,11 @@ ImgConverter::ImgConverter() {};
 ImgConverter::~ImgConverter() { stbi_image_free(_img); }
 
 // load image from given filename
-void ImgConverter::load(const char* filename) {
+void ImgConverter::load(std::string filename) {
     _filename = filename;
     int width;
     int height;
-    _img = stbi_load(filename, &width, &height, &_nbChannels, 0);
+    _img = stbi_load(filename.c_str(), &width, &height, &_nbChannels, 0);
     if (_img == NULL) {
         std::cout << "Could not load image file " << filename << std::endl;
         return;
@@ -33,11 +33,11 @@ void ImgConverter::load(const char* filename) {
 
 // save loaded image to filename. If no filename is given, the current file is overwritten
 void ImgConverter::save() { save(_filename);};
-void ImgConverter::save(const char* filename) {
+void ImgConverter::save(std::string filename) {
     if (_img != NULL) {
         int width = static_cast<int>(_width);
         int height = static_cast<int>(_height);
-        if (stbi_write_png(filename, width, height, _nbChannels, _img, _width*_nbChannels) == 0) {
+        if (stbi_write_png(filename.c_str(), width, height, _nbChannels, _img, _width*_nbChannels) == 0) {
             std::cout << "Could not save image to file " << _filename << std::endl;
             return;
         }

@@ -18,6 +18,7 @@ Cluster::Cluster(std::vector<double> centerIn, std::vector<std::vector<double>> 
     center = centerIn;
     sigma = sigmaIn;
     weighting = weightingIn;
+    points = std::make_shared<std::vector<std::vector<double>>>();
 }
 // return the angle in rad of the (major) principal axis ratio and x direction (pos about z)
 double Cluster::getAngle() {
@@ -122,7 +123,7 @@ void Cluster::matchClusters(const std::vector<std::shared_ptr<Cluster>>&clist1,
         }
 }
 
-// -------------------------------------------------------
+// ------------------------------ CLUSTERMODEL -------------------------
 
 ClusterModel::ClusterModel(std::vector<std::vector<double>> pointsIn, std::vector<Cluster> clustersIn)
 {
@@ -174,6 +175,7 @@ void ClusterModel::runClusterFitting()
         
         for (auto& cluster: clusters) {
             cluster->expectation(points, probs[cluster]);
+            cluster->points->clear();
         }
 
         // likelihood of all points to appear for the current set of clusters
@@ -202,7 +204,6 @@ void ClusterModel::runClusterFitting()
 //        std::cout << "likelihood: "<<likelihood <<std::endl;
 
             // reverse to exponential form
-            maxCluster = 0;
             //for (auto it = m_probability.begin(); it !=m_probability.end(); ++it)
             for (auto cluster:clusters) {
                 probs[cluster][iPnt] = exp(probs[cluster][iPnt] - logsum);
@@ -211,13 +212,17 @@ void ClusterModel::runClusterFitting()
 
             // find out for which cluster the point is most likely
             curMax = 0.0;
+            std::shared_ptr<Cluster> maxCluster;
             for (auto& cluster:clusters) {
                 if (curMax < probs[cluster][iPnt]) {
                     curMax = probs[cluster][iPnt];
-                    maxCluster =&cluster - &clusters[0];
+                    maxCluster = cluster;
+                    //maxCluster =&cluster - &clusters[0];
                 } 
             }
-            clu2pnt.insert(std::make_pair(clusters[maxCluster], iPnt));
+            maxCluster->points->push_back(points[iPnt]);
+            // clu2pnt.insert(std::make_pair(clusters[maxCluster], iPnt));
+            clu2pnt.insert(std::make_pair(maxCluster, points[iPnt]));
         } 
 
         // =======================================================
@@ -245,14 +250,17 @@ void ClusterModel::runClusterFitting()
     Utility::printMatrix({clusters[0]->center,clusters[1]->center,clusters[2]->center},"center 0 1 2:");
 }
 
-void ClusterModel::getClusterPoints(size_t clusterID, std::vector<std::vector<double>> &pointlist) {
-	auto it_range = clu2pnt.equal_range(clusters[clusterID]); //std::pair<MMAPIterator, MMAPIterator>
+void ClusterModel::getClusterPoints(const std::shared_ptr<Cluster> &cluster, std::shared_ptr<std::vector<std::vector<double>>> &pointlist) {
+    /*
+	auto it_range = clu2pnt.equal_range(clusters); //std::pair<MMAPIterator, MMAPIterator>
 	for (auto it = it_range.first; it != it_range.second; it++) {
 		pointlist.push_back(points[it->second]);
 //        std::cout << it->second << ": " << pointlist.back()[0]<< " | " <<pointlist.back()[1]<< std::endl;
     }
 	int num = std::distance(it_range.first, it_range.second);
-	std::cout << "cluster has " << num << " number of points."<< std::endl;
+    */
+	std::cout << "cluster has  number of points."<< std::endl;
+    
 }
 
 

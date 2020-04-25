@@ -41,6 +41,11 @@ int main() {
     // scale of image points (pixel coordinates will be scaled down to avoid numerical issues in clustering algorithm)
     double scale = 50;//300.0;
 
+    // cluster colors
+    std::vector<uint8_t> col1 = {255,0,0};
+    std::vector<uint8_t> col2 = {0,255,0};
+    std::vector<uint8_t> col3 = {0,0,255};
+
     // COLLECTING IMAGE FILES IN FOLDER
     // ======================================
     // file reading snippet from stack overflow
@@ -53,35 +58,135 @@ int main() {
     }
     globfree(&glob_result);
     std::cout << " number of files: " << files.size() << std::endl;
-    std::sort(files.begin(),files.end(),[](std::string a, std::string b){return a>b;});//sort the vector
+    std::sort(files.begin(),files.end(),[](std::string a, std::string b){return a>b;}); //sort the vector
     for (auto file: files)
         std::cout << "file: " << file << std::endl;
 
-
-
-
     // MULTITHREADING: LOAD AND CLUSTER IMAGES
     // ======================================
-    int width; 
-    int height;
-    int bpp;
     // initialize image queue
     // - number of max parallel threads
-    size_t fileID = 0;
 //auto up = make_unique<LongTypeName>(args)
     std::shared_ptr<ParallelImageProcessor<size_t>> pip(new ParallelImageProcessor<size_t>(roi, rgbThreshold, scale, maxThreads));
 
     std::cout << "Spawning threads..." << std::endl;
-    std::vector<std::future<void>> futures;
-
+    std::vector<std::future<size_t>> futures;
     // process all files
-    while (files.size()>0) {
-        std::string file = files.back();
-        files.pop_back();
-        futures.emplace_back(std::async(std::launch::async, &ParallelImageProcessor<size_t>::processImage, pip, std::move(fileID), file));
-        ++fileID;
+    for (size_t i = 0; i < files.size(); ++i) {
+        std::string file = files[i];
+        //TODO: avoid data race for futures
+        futures.emplace_back(std::async(std::launch::async, &ParallelImageProcessor<size_t>::processImage, pip, std::move(i), file));
+        std::cout << "   waiting" << std::endl;
+        size_t message = pip->readyForNextImage();
+        std::cout << "   num tasks #" << message << " finished " << std::endl;
     }
+    std::cout << "totally finished " << std::endl;
 
+    // PROCESS FRAMES SEQUENTIALLY FOR SPEED ESTIMATION
+    // ======================================
+    size_t frameID = 0;
+    std::map<std::shared_ptr<Cluster>,std::vector<uint8_t>> colMap; // maps clusters to color
+    while(futures.size()>0) {
+        // get first future
+        auto &ftr = futures.front();
+        ftr.wait();
+        frameID = ftr.get();
+        std::cout << "future " << frameID << " finished " << std::endl;
+        futures.erase (futures.begin());
+
+        // match clusters of current and previous frame
+        //TODO perform under the lock
+        std::vector<std::shared_ptr<Cluster>> cListCur = pip->clusterList.find(frameID)->second;
+
+        if (frameID == 0) {
+            // color mapping  rgbThreshold {200,200,255}
+            colMap.insert(std::make_pair(cListCur[0], col1));
+            colMap.insert(std::make_pair(cListCur[1], col2));
+            colMap.insert(std::make_pair(cListCur[2], col3));
+        } else {
+            //TODO perform under the lock
+            std::vector<std::shared_ptr<Cluster>> cListPrev = pip->clusterList.find(frameID-1)->second;
+
+            std::map<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> cmap;
+            Cluster::matchClusters(cListPrev,cListCur,cmap);
+            double avgAngVel = 0;
+            for (auto &match : cmap) {
+                auto cPrev = match.first;
+                auto cCur = match.second;
+                //TODO: check cluster size for plausibility
+                double angPrev = cPrev->getAngle();
+                double angCur = cCur->getAngle();
+                //TODO: check angle difference for plausibility
+                //TODO: apply modulo for angle difference
+                double angVel = angCur-angPrev;
+                std::cout << "cur speed: " << angVel << std::endl;
+                avgAngVel += angVel;
+                // match colors to previous cluster color
+                std::vector<uint8_t> prevColor = colMap.find(cPrev)->second;
+                colMap.insert(std::make_pair(cCur, prevColor));
+                colMap.erase(cPrev);
+            }
+            avgAngVel /= cmap.size();
+
+            // color clusters in image and save to output folder
+            const char* fn = files[frameID].c_str();
+            ImgConverter imgConv;
+            imgConv.load(fn);
+            for (auto &cluster : cListCur) {
+                std::cout << "converting cluster with points: " << cluster->points->size() << std::endl;
+                std::shared_ptr<ImgConverter::PointList> pointsImg = std::make_shared<ImgConverter::PointList>();
+                std::cout << "pointsImg: " << pointsImg->size() << std::endl;
+                for(auto pnt = cluster->points->begin(); pnt != cluster->points->end(); ++pnt) {
+                    std::cout << "converting point " << static_cast<size_t>(pnt->front()*scale) << std::endl;
+                    pointsImg->push_back({static_cast<size_t>(pnt->front()*scale),static_cast<size_t>(pnt->back()*scale)});
+                }
+                imgConv.writePointsToImg (pointsImg, colMap.find(cluster)->second);
+            }
+            imgConv.save("../imgOut/out" + std::to_string(frameID) + ".png");
+        }
+/*
+        // convert back
+        // TODO: create single for loop
+        std::vector<std::vector<double>> mypoints2;
+        std::vector<std::vector<double>> mypoints3;
+        std::vector<std::vector<size_t>>* points2 = new std::vector<std::vector<size_t>>();
+        std::vector<std::vector<size_t>>* points3 = new std::vector<std::vector<size_t>>();
+        cm.getClusterPoints(0,mypoints1);
+        cm.getClusterPoints(1,mypoints2);
+        cm.getClusterPoints(2,mypoints3);
+        for(auto pnt : mypoints1) {
+            points1->push_back({static_cast<size_t>(pnt[0]*scale),static_cast<size_t>(pnt[1]*scale)});
+        }
+        for(auto pnt : mypoints2) {
+            points2->push_back({static_cast<size_t>(pnt[0]*scale),static_cast<size_t>(pnt[1]*scale)});
+        }
+        for(auto pnt : mypoints3) {
+            points3->push_back({static_cast<size_t>(pnt[0]*scale),static_cast<size_t>(pnt[1]*scale)});
+        }
+
+
+
+
+            // write output to file
+    // create ringbuffer
+    // add newest cluster
+    // if length == 1
+        // set colors for clusters (via map)
+        // color image and save output
+        // save angles (via map)
+    // if length == 2
+        // match clusters
+        // swap color map to new clusters
+        // color image and save output
+        // for each map check distance and number of points for plausibility 
+        // calc delta angle => angular velocity for frame
+        // imprint value to image and save output
+
+        }
+        // delete first future from future list
+    */
+
+    }
 /*    
 
     // create monitor object as a shared pointer to enable access by multiple threads
@@ -103,30 +208,22 @@ int main() {
     std::cout << "center should: " << meany << " is " <<  cmap.find(c1)->second->center[1] <<std::endl;
 
     }
+            std::shared_ptr<Cluster>  c1(new Cluster({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0));
+            std::shared_ptr<Cluster>  c2(new Cluster({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+            std::shared_ptr<Cluster>  c3(new Cluster({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
 
-    std::for_each(futures.begin(), futures.end(), [](std::future<void> &ftr) {
-        ftr.wait();
-    });
+            std::shared_ptr<Cluster>  c4(new Cluster({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0));
+            std::shared_ptr<Cluster>  c5(new Cluster({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+            std::shared_ptr<Cluster>  c6(new Cluster({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+            std::vector<std::shared_ptr<Cluster>> clist1 = {c1,c2,c3};
+            std::vector<std::shared_ptr<Cluster>> clist2 = {c6,c5,c4};
+
 
 */
 std::shared_ptr<std::vector<std::vector<size_t>>> points (new std::vector<std::vector<size_t>>());
 
 // THREAD BARRIER
     // wait for threats
-
-    // create ringbuffer
-    // add newest cluster
-    // if length == 1
-        // set colors for clusters (via map)
-        // color image and save output
-        // save angles (via map)
-    // if length == 2
-        // match clusters
-        // swap color map to new clusters
-        // color image and save output
-        // for each map check distance and number of points for plausibility 
-        // calc delta angle => angular velocity for frame
-        // imprint value to image and save output
 
     // run clustering on rotor blade points
 

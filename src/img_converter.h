@@ -13,7 +13,7 @@ class ImgConverter
     using PointList = std::vector<Point>;
 
 private:
-    const char* _filename;
+    std::string _filename;
     uint8_t* _img = NULL;
     size_t _width = 0;
     size_t _height = 0;
@@ -44,11 +44,11 @@ public:
 
     // Functions
     // load image from given filename
-    void load(const char* filename);
+    void load(const std::string filename);
 
     // save loaded image to filename. If no filename is given, the current file is overwritten
     void save();
-    void save(const char* filename);
+    void save(const std::string filename);
 
     // returns true if pixel coordinates are in bound of loaded image
     bool inBound (const Point point);
