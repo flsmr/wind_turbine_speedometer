@@ -13,12 +13,11 @@
 #include "clustering.h"
 #include "utility.h"
 
-
 Cluster::Cluster(std::vector<double> centerIn, std::vector<std::vector<double>> sigmaIn,double weightingIn) {
     center = centerIn;
     sigma = sigmaIn;
     weighting = weightingIn;
-    points = std::make_shared<std::vector<std::vector<double>>>();
+    cPoints = std::make_shared<std::vector<std::vector<double>>>();
 }
 // return the angle in rad of the (major) principal axis ratio and x direction (pos about z)
 double Cluster::getAngle() {
@@ -105,34 +104,33 @@ void Cluster::matchClusters(const std::vector<std::shared_ptr<Cluster>>&clist1,
                 tuples.push_back(std::make_pair(cluster1, cluster2));
             }
         }
-
         //sort by min distance
         std::sort(tuples.begin(),tuples.end(), [](
             std::pair<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &a,
             std::pair<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &b)->bool
             {return a.first->getClusterDistance(a.second) > b.first->getClusterDistance(b.second);});
-
         // add closest clusters to map
+        // (find 1:1 mapping such that color maps will always be kept)
         while(tuples.size() > 0) {
             auto cpair = tuples.back();
-            // check if cluster is already in map
+            // check if cluster (pair.first) has not been mapped yet
             if (cmap.find(cpair.first) == cmap.end()) {
-                cmap.insert(cpair);
+                // check if cluster (pair.second) has not been mapped yet
+                bool cluster2mapped = false;
+                for (auto &pair : cmap) {
+                    if (pair.second == cpair.second) {
+                        cluster2mapped = true;
+                    }
+                }
+                if (!cluster2mapped) {
+                    cmap.insert(cpair);
+                }
             }
             tuples.pop_back();
         }
 }
 
 // ------------------------------ CLUSTERMODEL -------------------------
-
-ClusterModel::ClusterModel(std::vector<std::vector<double>> pointsIn, std::vector<Cluster> clustersIn)
-{
-    for (auto cluster: clustersIn) {
-        std::shared_ptr<Cluster> clusterPtr = std::make_shared<Cluster>(cluster.center,cluster.sigma, cluster.weighting);
-        clusters.push_back(clusterPtr);
-    }
-    points = pointsIn;
-}
 
 void ClusterModel::runClusterFitting()
 {
@@ -164,14 +162,13 @@ void ClusterModel::runClusterFitting()
         
         for (auto& cluster: clusters) {
             cluster->expectation(points, probs[cluster]);
-            cluster->points->clear();
+            cluster->cPoints->clear();
         }
 
         // likelihood of all points to appear for the current set of clusters
         double expsum;
         double logsum;
         likelihood = 0;
-        clu2pnt.clear();
         for (size_t iPnt = 0; iPnt < points.size(); ++iPnt)
         {
             // determine maximum probability for this point of all clusters
@@ -190,7 +187,6 @@ void ClusterModel::runClusterFitting()
             likelihood +=logsum;
 
             // reverse to exponential form
-            //for (auto it = m_probability.begin(); it !=m_probability.end(); ++it)
             for (auto cluster:clusters) {
                 probs[cluster][iPnt] = exp(probs[cluster][iPnt] - logsum);
             }
@@ -202,12 +198,9 @@ void ClusterModel::runClusterFitting()
                 if (curMax < probs[cluster][iPnt]) {
                     curMax = probs[cluster][iPnt];
                     maxCluster = cluster;
-                    //maxCluster =&cluster - &clusters[0];
                 } 
             }
-            maxCluster->points->push_back(points[iPnt]);
-            // clu2pnt.insert(std::make_pair(clusters[maxCluster], iPnt));
-            clu2pnt.insert(std::make_pair(maxCluster, points[iPnt]));
+            maxCluster->cPoints->push_back(points[iPnt]);
         } 
 
         // Clusters not changing anymore? => done.

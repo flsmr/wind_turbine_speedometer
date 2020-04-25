@@ -30,7 +30,6 @@ public:
     T processImage(T &&msg, std::string filename)
     {
         std::unique_lock<std::mutex> lck(_mutex );
-        std::cout << filename << " (frameID : " << msg << ") is being processed." << std::endl;
         ++_runningThreads;
         // copy parameters to avoid unnecessary locking/unlocking
         auto roi = _roi;

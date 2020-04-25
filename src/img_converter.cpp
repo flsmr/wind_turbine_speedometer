@@ -51,11 +51,16 @@ bool ImgConverter::inBound (const Point point) {
 }
 
 // sets pixels with coordinates given in points to specified rgb color in loaded image 
-void ImgConverter::writePointsToImg (std::shared_ptr<PointList> points, std::vector<uint8_t> color) {
+void ImgConverter::writePointsToImg (const std::shared_ptr<PointList> &points, const std::vector<uint8_t> &color) {
+    std::cout << "writePointsToImg1."<< std::endl;
     if (_img != NULL) {
+//        std::cout << "writePointsToImg2."<< std::endl;
         for (Point point: (*points)) {
+//            std::cout << "inBound?"<< std::endl;
             if (inBound(point)) {
+ //               std::cout << "setting rbb:"<< std::endl;
                 setRGBValue(point, color);
+ //               std::cout << "setting rgb done."<< std::endl;
             }
         }
     } else {

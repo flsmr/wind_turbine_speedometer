@@ -12,7 +12,7 @@ public:
     std::vector<std::vector<double>> sigma;
     // weighting wrt. other clusters
     double weighting;
-    std::shared_ptr<std::vector<std::vector<double>>> points;
+    std::shared_ptr<std::vector<std::vector<double>>> cPoints;
     // Constructor
     Cluster();
     Cluster(std::vector<double> center, std::vector<std::vector<double>> sigma,double weighting); 
@@ -39,7 +39,7 @@ public:
     void expectation(std::vector<std::vector<double>> points, std::vector<double>&prob);
     // returns the euclidean distance between the mean of this and the provided cluster
     double getClusterDistance(std::shared_ptr<Cluster> &cluster);
-    // returns a map between the closest clusters in clist1 and clist2 by distance of their centers
+    // returns a 1:1 map between the closest clusters in clist1 and clist2 by distance of their centers
     static void matchClusters(const std::vector<std::shared_ptr<Cluster>>&clist1,
         const std::vector<std::shared_ptr<Cluster>>&clist2,
         std::map<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> &cmap);
@@ -49,13 +49,12 @@ public:
 class ClusterModel
 {
 public:
-    //std::vector<Cluster> clusters;
-    std::multimap <std::shared_ptr<Cluster>, std::vector<double>> clu2pnt;
+    // vector of cluster pointers of current cluster model
     std::vector<std::shared_ptr<Cluster>> clusters;
+    // vector of points which are to be clustered
     std::vector<std::vector<double>> points;
 
-    // Default constructor
-    ClusterModel(std::vector<std::vector<double>> points, std::vector<Cluster> clusters);
+    // Constructor
     ClusterModel(std::vector<std::vector<double>> points, std::vector<std::shared_ptr<Cluster>> &clusters) : points(points) , clusters(clusters) {};
     /*
     // Copy constructor

@@ -54,7 +54,7 @@ public:
     bool inBound (const Point point);
 
     // sets pixels with coordinates given in points to specified rgb color in loaded image 
-    void writePointsToImg (std::shared_ptr<PointList> points, std::vector<uint8_t> color);
+    void writePointsToImg(const std::shared_ptr<PointList> &points, const std::vector<uint8_t> &color);// (std::shared_ptr<PointList> points, std::vector<uint8_t> color);
 
     // returns the rgb value of a pixel in loaded image or {0,0,0} if out of bound
     void getRGBValue(const Point point, std::vector<uint8_t> &rgbVal);
