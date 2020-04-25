@@ -52,15 +52,10 @@ bool ImgConverter::inBound (const Point point) {
 
 // sets pixels with coordinates given in points to specified rgb color in loaded image 
 void ImgConverter::writePointsToImg (const std::shared_ptr<PointList> &points, const std::vector<uint8_t> &color) {
-    std::cout << "writePointsToImg1."<< std::endl;
     if (_img != NULL) {
-//        std::cout << "writePointsToImg2."<< std::endl;
         for (Point point: (*points)) {
-//            std::cout << "inBound?"<< std::endl;
             if (inBound(point)) {
- //               std::cout << "setting rbb:"<< std::endl;
                 setRGBValue(point, color);
- //               std::cout << "setting rgb done."<< std::endl;
             }
         }
     } else {
@@ -94,7 +89,7 @@ void ImgConverter::setRGBValue(const Point point, const std::vector<uint8_t> &rg
 }
 
 // returns a list of points above rgb threshold in defined region of interest
-void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, std::shared_ptr<PointList> points) {
+void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, const double varianceThreshold, std::shared_ptr<PointList> points) {
     // limit region of interest to image boundaries
     int minCol = (roi.minCol < 0) ? 0 : roi.minCol;
     int maxCol = (roi.maxCol > _width) ? _width : roi.maxCol;
@@ -107,10 +102,14 @@ void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vecto
         for (size_t col = minCol; col < maxCol; ++col) {
             getRGBValue({row, col}, rgbVal);
             bool aboveThreshold = false;
+            double mean = 0.0;
             for (size_t channel = 0; channel < _nbChannels; ++channel) {
                 aboveThreshold = (aboveThreshold || rgbVal[channel] > threshold[channel]) ? true : false;
+                mean += rgbVal[channel];
             }
-            if(aboveThreshold) points->push_back({row,col});
+            mean /=3.0;
+            double variance = pow(rgbVal[0]-mean,2)+pow(rgbVal[1]-mean,2)+pow(rgbVal[2]-mean,2);
+            if(aboveThreshold && variance < varianceThreshold) points->push_back({row,col});
         }
     }
 }

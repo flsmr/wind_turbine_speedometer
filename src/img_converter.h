@@ -63,7 +63,7 @@ public:
     void setRGBValue(const Point point, const std::vector<uint8_t> &rgbVal);
 
     // returns a list of points above rgb threshold in defined region of interest
-    void getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, std::shared_ptr<PointList> points);
+    void getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, const double varianceThreshold, std::shared_ptr<PointList> points);
 
     // returns list of points lying on a line between start and endpoint according to Bresenham's line algorithm
     // Pseudocode: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm

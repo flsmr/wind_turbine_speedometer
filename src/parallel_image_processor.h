@@ -16,8 +16,8 @@ class ParallelImageProcessor
 {
 public:
     // Constructor
-    ParallelImageProcessor(ImgConverter::ROI roi, std::vector<uint8_t> rgbThreshold, double scale, size_t maxThreads) : 
-        _roi(roi) , _rgbThreshold(rgbThreshold) , _scale(scale), _maxThreads(maxThreads) {}
+    ParallelImageProcessor(ImgConverter::ROI roi, std::vector<uint8_t> rgbThreshold, double varianceThreshold, double scale, size_t maxThreads) : 
+        _roi(roi) , _rgbThreshold(rgbThreshold) , _varianceThreshold(varianceThreshold), _scale(scale), _maxThreads(maxThreads) {}
 
     // limit the number of threads running in parallel
     void readyForNextImage()
@@ -35,6 +35,7 @@ public:
         auto roi = _roi;
         auto rgbThreshold = _rgbThreshold;
         auto scale = _scale;
+        auto varianceThreshold = _varianceThreshold;
         lck.unlock();
 
         // load image file
@@ -43,14 +44,14 @@ public:
 
         // extracting rotor blade points
         std::shared_ptr<std::vector<std::vector<size_t>>> points (new std::vector<std::vector<size_t>>());
-        imgConv.getPointsInROIAboveThreshold (roi, rgbThreshold, points); // DATA RACE!
+        imgConv.getPointsInROIAboveThreshold (roi, rgbThreshold, varianceThreshold, points); // DATA RACE!
         // remove tower (awful hack - but makes life easier for the first shot!)
         // OPT TODO: add 4th cluster to "catch" tower and ignore "non-moving" clusters
-        for (auto it = points->begin(); it !=points->end(); ++it) {
+        for (auto pnt = points->begin(); pnt !=points->end(); ++pnt) {
             // (*it)[0]: rows | (*it)[1]: cols 
-            if ((*it)[1] > 150 && (*it)[1] < 200 && (*it)[0] > 200) {
-                points->erase(it);
-                --it;
+            if (pnt->back() > 165 && pnt->back() < 200 && pnt->front() > 200) {
+                points->erase(pnt);
+                --pnt;
             }
         }
             
@@ -77,9 +78,12 @@ public:
         // position 1st cluster in center of extracted points, 2nd and 3rd above / below respectively
         // initialize covariance matrix as identity matrix 
         // weight corresponds to 1 / (number of clusters)
-        std::shared_ptr<Cluster> cluster1(new Cluster({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0));
-        std::shared_ptr<Cluster> cluster2(new Cluster({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
-        std::shared_ptr<Cluster> cluster3(new Cluster({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+//        std::shared_ptr<Cluster> cluster1(new Cluster({meanx,meany}, {{1,0},{0,1}}, 1.0/3.0));
+//        std::shared_ptr<Cluster> cluster2(new Cluster({meanx,meany+maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+//        std::shared_ptr<Cluster> cluster3(new Cluster({meanx,meany-maxy/2.0}, {{1,0},{0,1}}, 1.0/3.0));
+        std::shared_ptr<Cluster> cluster1(new Cluster({minx,meany}, {{1,0},{0,1}}, 1.0/3.0));
+        std::shared_ptr<Cluster> cluster2(new Cluster({meanx,maxy}, {{1,0},{0,1}}, 1.0/3.0));
+        std::shared_ptr<Cluster> cluster3(new Cluster({meanx,miny}, {{1,0},{0,1}}, 1.0/3.0));
         std::vector<std::shared_ptr<Cluster>> clusters = {cluster1,cluster2,cluster3};
 
         // fit clusters to extracted points
@@ -112,6 +116,7 @@ private:
     double _scale{1};
     size_t _maxThreads{4};
     size_t _runningThreads{0};
+    double _varianceThreshold;
     // maps frame ID to list of clusters detected in this frame
     std::map<size_t,std::vector<std::shared_ptr<Cluster>>> _clusterList;
 };

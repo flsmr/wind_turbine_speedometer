@@ -56,8 +56,8 @@ int main() {
     roi.minRow = 0;
 
     // rgb threshold above which pixels will be considered for clustering
-    std::vector<uint8_t> rgbThreshold {200,200,255};
-
+    std::vector<uint8_t> rgbThreshold {80,250,255};
+    double varianceThreshold{1000.0};
     // scale of image points (pixel coordinates will be scaled down to avoid numerical issues in clustering algorithm)
     double scale = 50;//300.0;
 
@@ -78,13 +78,13 @@ int main() {
     }
     globfree(&glob_result);
 
-files.erase(files.begin(),files.begin()+35);
-files.erase(files.begin()+7,files.end());
+files.erase(files.begin(),files.begin()+55);
+files.erase(files.begin()+3,files.end());
     // MULTITHREADING: LOAD AND CLUSTER IMAGES
     // ======================================
     // initialize image queue
     std::cout << "Analyzing " << files.size() << " images..." << std::endl;
-    std::shared_ptr<ParallelImageProcessor<size_t>> pip(new ParallelImageProcessor<size_t>(roi, rgbThreshold, scale, maxThreads));
+    std::shared_ptr<ParallelImageProcessor<size_t>> pip(new ParallelImageProcessor<size_t>(roi, rgbThreshold, varianceThreshold, scale, maxThreads));
     std::vector<std::future<size_t>> futures;
     // sort the vector of files to assure correct processing order
     std::sort(files.begin(),files.end(),[](std::string a, std::string b){return a < b;}); 
@@ -103,6 +103,8 @@ files.erase(files.begin()+7,files.end());
     size_t frameID = 0;
     // vector of estimated angular velocities (0 for first frame) [rad/s]
     std::vector<double> avgAngVels{0.0}; 
+    std::vector<double> medAngVels{0.0}; 
+    std::vector<std::vector<double>> indivAngVels{{0.0,0.0,0.0}}; 
     // maps clusters to color
     std::map<std::shared_ptr<Cluster>,std::vector<uint8_t>> colMap; 
     // sequentially estimate angular velocity from concurrent images 
@@ -115,7 +117,6 @@ files.erase(files.begin()+7,files.end());
 
         // match clusters of current and previous frame
         std::vector<std::shared_ptr<Cluster>> cListCur;
-         std::cout <<"loading cur" << std::endl;
         pip->getClusters(frameID, cListCur);
         if (frameID == 0) {
             // color mapping  rgbThreshold {200,200,255}
@@ -124,12 +125,12 @@ files.erase(files.begin()+7,files.end());
             colMap.insert(std::make_pair(cListCur[2], col3));
         } else {
             std::vector<std::shared_ptr<Cluster>> cListPrev;
-         std::cout <<"loading prev" << std::endl;
             pip->getClusters(frameID-1, cListPrev);
 
             std::map<std::shared_ptr<Cluster>,std::shared_ptr<Cluster>> cmap;
             Cluster::matchClusters(cListPrev,cListCur,cmap);
             double avgAngVel = 0.0;
+            std::vector<double> indivAngVel;
             for (auto &match : cmap) {
                 auto cPrev = match.first;
                 auto cCur = match.second;
@@ -141,31 +142,36 @@ files.erase(files.begin()+7,files.end());
                 // OPT TODO: check angle difference for plausibility
                 // OPT TODO: apply modulo for angle difference
                 double angVel = angCur-angPrev;
-                avgAngVel += angVel/fps;
+                indivAngVel.push_back(angVel);
+                avgAngVel += angVel*fps;
                 // match colors to previous cluster color
                 colMap.insert(std::make_pair(cCur, colMap.find(cPrev)->second));
                 colMap.erase(cPrev);
-
             }
+            // mean angles
             avgAngVel /= cmap.size();
             avgAngVels.push_back(avgAngVel);
-
-            // color clusters in image and save to output folder
-            const char* fn = files[frameID].c_str();
-            ImgConverter imgConv;
-            imgConv.load(fn);
-
-            for (auto &cluster : cListCur) {
-                if (cluster->cPoints->size() > 0) {
-                    std::shared_ptr<ImgConverter::PointList> pointsImg = std::make_shared<ImgConverter::PointList>();
-                    for(auto pnt = cluster->cPoints->begin(); pnt != cluster->cPoints->end(); ++pnt) {
-                        pointsImg->push_back({static_cast<size_t>(pnt->front()*scale),static_cast<size_t>(pnt->back()*scale)});
-                    }
-                    imgConv.writePointsToImg (pointsImg,colMap.find(cluster)->second);
-                }
-            }
-            imgConv.save("../imgOut/out" + std::to_string(frameID) + ".png");
+            // median angles
+            std::nth_element(indivAngVel.begin(), indivAngVel.begin() + indivAngVel.size()/2, indivAngVel.end());
+            medAngVels.push_back(indivAngVel[indivAngVel.size()/2]);
+            //individual angles
+            indivAngVels.push_back(indivAngVel);
         }
+        // color clusters in image and save to output folder
+        const char* fn = files[frameID].c_str();
+        ImgConverter imgConv;
+        imgConv.load(fn);
+
+        for (auto &cluster : cListCur) {
+            if (cluster->cPoints->size() > 0) {
+                std::shared_ptr<ImgConverter::PointList> pointsImg = std::make_shared<ImgConverter::PointList>();
+                for(auto pnt = cluster->cPoints->begin(); pnt != cluster->cPoints->end(); ++pnt) {
+                    pointsImg->push_back({static_cast<size_t>(pnt->front()*scale),static_cast<size_t>(pnt->back()*scale)});
+                }
+                imgConv.writePointsToImg (pointsImg,colMap.find(cluster)->second);
+            }
+        }
+        imgConv.save("../imgOut/out" + std::to_string(frameID) + ".png");
     }
 
     // WRITE RESULTS TO CSV FILE
@@ -178,7 +184,12 @@ files.erase(files.begin()+7,files.end());
     }
    
     // write CSV header row
-    output_stream << "ID" << "," << "filename" << "," << "Avg Ang Vel [rad/s]" <<std::endl;
+    output_stream << "ID" << "," << "filename" 
+                          << "," << "Avg Ang Vel [rad/s]"
+                          << "," << "Med Ang Vel [rad/s]"
+                          << "," << "Ang Vel 1 [rad/s]" 
+                          << "," << "Ang Vel 2 [rad/s]" 
+                          << "," << "Ang Vel 3 [rad/s]" <<std::endl;
     
     // write det/des performance data to .csv output file line by line
     for (int i = 0; i < files.size(); ++i) {
@@ -186,6 +197,10 @@ files.erase(files.begin()+7,files.end());
     output_stream << i
                     << "," << files.at(i)
                     << "," << avgAngVels.at(i)
+                    << "," << medAngVels.at(i)
+                    << "," << indivAngVels.at(i).at(0)
+                    << "," << indivAngVels.at(i).at(1)
+                    << "," << indivAngVels.at(i).at(2)
                     << std::endl;
     }
     output_stream.close();
