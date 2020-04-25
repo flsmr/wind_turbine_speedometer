@@ -28,6 +28,7 @@ void ImgConverter::load(const char* filename) {
     }
     _width = static_cast<size_t>(width);
     _height = static_cast<size_t>(height);
+    std::cout << "Image size (width | heigth): "<< width << " | " << height << std::endl;
 }
 
 // save loaded image to filename. If no filename is given, the current file is overwritten
@@ -51,7 +52,7 @@ bool ImgConverter::inBound (const Point point) {
 }
 
 // sets pixels with coordinates given in points to specified rgb color in loaded image 
-void ImgConverter::writePointsToImg (PointList* points, std::vector<uint8_t> color) {
+void ImgConverter::writePointsToImg (std::shared_ptr<PointList> points, std::vector<uint8_t> color) {
     if (_img != NULL) {
         for (Point point: (*points)) {
             if (inBound(point)) {
@@ -89,7 +90,7 @@ void ImgConverter::setRGBValue(const Point point, const std::vector<uint8_t> &rg
 }
 
 // returns a list of points above rgb threshold in defined region of interest
-void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, PointList* points) {
+void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, std::shared_ptr<PointList> points) {
     // limit region of interest to image boundaries
     int minCol = (roi.minCol < 0) ? 0 : roi.minCol;
     int maxCol = (roi.maxCol > _width) ? _width : roi.maxCol;
@@ -142,10 +143,10 @@ void ImgConverter::getLinePoints(const Point startPoint, const Point endPoint, P
 }
 
 void ImgConverter::writeLineToImg (const Point startPoint, const Point endPoint, std::vector<uint8_t> color) {
-    PointList linePoints;
-    getLinePoints(startPoint,endPoint, linePoints);
-    PointList* pointsOut = &linePoints;
-    writePointsToImg (pointsOut, color);
+    std::shared_ptr<PointList> linePoints;
+    getLinePoints(startPoint,endPoint, (*linePoints));
+    //std::shared_ptr<PointList> pointsOut = linePoints;
+    writePointsToImg (linePoints, color);
 }
 
 #endif /* IMGCONVERTER_CPP_ */

@@ -54,7 +54,7 @@ public:
     bool inBound (const Point point);
 
     // sets pixels with coordinates given in points to specified rgb color in loaded image 
-    void writePointsToImg (PointList* points, std::vector<uint8_t> color);
+    void writePointsToImg (std::shared_ptr<PointList> points, std::vector<uint8_t> color);
 
     // returns the rgb value of a pixel in loaded image or {0,0,0} if out of bound
     void getRGBValue(const Point point, std::vector<uint8_t> &rgbVal);
@@ -63,7 +63,7 @@ public:
     void setRGBValue(const Point point, const std::vector<uint8_t> &rgbVal);
 
     // returns a list of points above rgb threshold in defined region of interest
-    void getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, PointList* points);
+    void getPointsInROIAboveThreshold (const ROI roi, const std::vector<uint8_t> threshold, std::shared_ptr<PointList> points);
 
     // returns list of points lying on a line between start and endpoint according to Bresenham's line algorithm
     // Pseudocode: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
