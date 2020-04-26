@@ -1,7 +1,6 @@
 # wind_turbine_speedometer
 Determines the angular velocity of a wind turbine from a video sequence. As an input, single frames extracted from a video for instance via VLC are first filtered using a region of interest and color thresholds to extract the pixels of the rotorblade. Afterwards, a clustering algorithm based on a Gaussian mixture model applied. The resulting cluster orientations are used for an estimate of the rotor blade orientations in each frame. Clusters of consecutive frames are matched by means of their mean distance such that angle offsets can be transformed into an angular velocity. The resulting velocities are exported into a CSV file and detected clusters are colored within the images.
-![Original Image](./img_orig_11.png)
-![Processed Image](./img_out_11.png)
+
 ![Preview of Clustering](./Preview.gif)
 ![Graph of CSV](./Graph.png)
 
