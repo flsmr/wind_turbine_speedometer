@@ -116,6 +116,7 @@ void ImgConverter::getPointsInROIAboveThreshold (const ROI roi, const std::vecto
 
 // returns list of points for a line between start and endpoint according to Bresenham's line algorithm
 // Pseudocode: https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm
+/*
 void ImgConverter::getLinePoints(const Point startPoint, const Point endPoint, PointList &pointList) {
     // swap start and end to draw line from left to right
     bool swap = (startPoint[0]<endPoint[0]);
@@ -143,10 +144,11 @@ void ImgConverter::getLinePoints(const Point startPoint, const Point endPoint, P
         }
     }
 }
+*/
 
 void ImgConverter::writeLineToImg (const Point startPoint, const Point endPoint, std::vector<uint8_t> color) {
     std::shared_ptr<PointList> linePoints;
-    getLinePoints(startPoint,endPoint, (*linePoints));
+    //getLinePoints(startPoint,endPoint, (*linePoints));
     writePointsToImg (linePoints, color);
 }
 
