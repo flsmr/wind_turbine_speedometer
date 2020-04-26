@@ -49,7 +49,7 @@ public:
         // OPT TODO: add 4th cluster to "catch" tower and ignore "non-moving" clusters
         for (auto pnt = points->begin(); pnt !=points->end(); ++pnt) {
             // (*it)[0]: rows | (*it)[1]: cols 
-            if (pnt->back() > 165 && pnt->back() < 200 && pnt->front() > 200) {
+            if (pnt->back() > 165 && pnt->back() < 205 && pnt->front() > 215) {
                 points->erase(pnt);
                 --pnt;
             }

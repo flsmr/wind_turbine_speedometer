@@ -8,7 +8,7 @@
 
 class ImgConverter
 {
-    public:
+public:
     using Point = std::vector<size_t>; // {row Idx, col Idx}
     using PointList = std::vector<Point>;
 

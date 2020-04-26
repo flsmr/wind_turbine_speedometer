@@ -3,6 +3,7 @@
 #include <iostream>
 #include <memory>
 #include <algorithm>
+#include <cmath>
 
 // file search
 #include <glob.h> 
@@ -20,6 +21,8 @@
 #include "clustering.h"
 #include "img_converter.h"
 #include "parallel_image_processor.h"
+
+# define PI0_5           1.570796327
 
 int main() {
     std::cout << "==================================" << std::endl;
@@ -47,7 +50,7 @@ int main() {
     std::string pattern = "../img/*.png";
     std::string csvFileName = "../imgOut/AngularVelocity.csv";
     // fps
-    double fps = 10;
+    double fps = 30;
     // region of interest for analysis
     ImgConverter::ROI roi;
     roi.maxCol = 500;
@@ -57,7 +60,7 @@ int main() {
 
     // rgb threshold above which pixels will be considered for clustering
     std::vector<uint8_t> rgbThreshold {80,250,255};
-    double varianceThreshold{1000.0};
+    double varianceThreshold{1500.0};
     // scale of image points (pixel coordinates will be scaled down to avoid numerical issues in clustering algorithm)
     double scale = 50;//300.0;
 
@@ -66,6 +69,7 @@ int main() {
     std::vector<uint8_t> col2  = {0,255,0};
     std::vector<uint8_t> col3  = {0,0,255};
     std::vector<uint8_t> black = {0,0,0};
+    
     // COLLECTING IMAGE FILES IN FOLDER
     // ======================================
     // file reading snippet from stack overflow
@@ -78,8 +82,6 @@ int main() {
     }
     globfree(&glob_result);
 
-files.erase(files.begin(),files.begin()+55);
-files.erase(files.begin()+3,files.end());
     // MULTITHREADING: LOAD AND CLUSTER IMAGES
     // ======================================
     // initialize image queue
@@ -93,7 +95,7 @@ files.erase(files.begin()+3,files.end());
     // process all files
     for (size_t i = 0; i < files.size(); ++i) {
         std::string file = files[i];
-        futures.emplace_back(std::async(std::launch::async, &ParallelImageProcessor<size_t>::processImage, pip, std::move(i), file));
+        futures.emplace_back(std::async(&ParallelImageProcessor<size_t>::processImage, pip, std::move(i), file)); //std::launch::async
         std::cout << files.at(i) << " (frameID : " << i << ") is being processed." << std::endl;
         pip->readyForNextImage();
     }
@@ -135,15 +137,13 @@ files.erase(files.begin()+3,files.end());
                 auto cPrev = match.first;
                 auto cCur = match.second;
 
-                // OPT TODO: check cluster size for plausibility
+                // get cluster angles and account for angle ranges
                 double angPrev = cPrev->getAngle();
                 double angCur = cCur->getAngle();
-
-                // OPT TODO: check angle difference for plausibility
-                // OPT TODO: apply modulo for angle difference
-                double angVel = angCur-angPrev;
+                angCur = (angCur < 0 && angPrev > 0) ? angCur+PI0_5 : angCur;
+                double angVel = (angCur-angPrev)*fps;
                 indivAngVel.push_back(angVel);
-                avgAngVel += angVel*fps;
+                avgAngVel += angVel;
                 // match colors to previous cluster color
                 colMap.insert(std::make_pair(cCur, colMap.find(cPrev)->second));
                 colMap.erase(cPrev);
