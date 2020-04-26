@@ -37,3 +37,6 @@ imgOut/*
 .vscode/*
 src/.vscode/*
 #img/*
+
+# exception to the rule
+!imgOut/.gitkeep 
