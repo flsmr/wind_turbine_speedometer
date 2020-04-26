@@ -37,7 +37,7 @@ void ImgConverter::save(std::string filename) {
         int width = static_cast<int>(_width);
         int height = static_cast<int>(_height);
         if (stbi_write_png(filename.c_str(), width, height, _nbChannels, _img, _width*_nbChannels) == 0) {
-            std::cout << "Could not save image to file " << _filename << std::endl;
+            std::cout << "Could not save image to file " << filename << std::endl;
             return;
         }
     } else {
